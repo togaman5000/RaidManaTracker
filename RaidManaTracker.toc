@@ -1,0 +1,9 @@
+## Interface: 50400
+## Notes: Displays information regarding healer mana and mana cooldowns in raids
+## Title: Raid Mana Tracker
+## Author: Gray
+## Version: v0.1
+## SavedVariables: RaidManaTracker_SavedVariables
+
+RaidManaTracker.xml
+RaidManaTracker.lua
