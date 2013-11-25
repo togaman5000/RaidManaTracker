@@ -77,10 +77,11 @@ local PersonalCooldownSpellIDs = {
 	[16190] = 180,							--Shaman, since they have nothing other than Mana Tide
 	--[18562] = 15, 							--Swiftmend DEBUGGING PURPOSES
 	}
-local RaidwideCooldownSpellIDs = {
+local RecommendSpellIDs = {
 	["PRIEST"] = 64901,			 				--Hymn of Hope
 	["SHAMAN"] = 16190,		 					--Mana Tide
-	["DRUID"] = 29166,							--Need Mana Tide under both classifications
+	["DRUID"] = 29166,							--Innervate
+	
 	}
 local PotionSpellIDs = {
 	[105701] = "Potion of Focus", 			--Potion of Focus
@@ -106,7 +107,7 @@ local PotionSpellIDs = {
 
 -- Basic enabled/disabled tracking variables
 local RaidManaTrackerEnabled = true
-local RaidManaTrackerRecommendationEnabled = false
+local RaidManaTrackerRecommendationEnabled = true
 local CurrentRecommendation = nil
 local ManaThreshold = 65
 	
@@ -127,7 +128,7 @@ local playerClass = nil
 
 local _ = nil
 
-local RaidManaTracker_debug = false
+local RaidManaTracker_debug = true
 
 ------------------------------
 -- Enable/Disable Functions --
@@ -175,7 +176,6 @@ local function RaidManaTracker_SetMode()
 	
 	if ((playerClass == "PRIEST") or ((playerClass == "DRUID") and (GetSpecialization() == 1)) or ((playerClass == "SHAMAN") and (GetSpecialization() == 3))) then
 		RaidManaTrackerRecommendationEnabled = true
-		RaidCooldownSpellAvailable = true
 	end
 end
 
@@ -218,7 +218,7 @@ local function RaidManaTracker_UpdateCooldownUsage(name, spellID)
 		entry = {
 			["Name"] = name,
 			["Spell"] = spellID,
-			["TimeReady"] = GetTime() + (PersonalCooldownSpellIDs[spellID] or RaidwideCooldownSpellIDs[spellID]),
+			["TimeReady"] = GetTime() + (PersonalCooldownSpellIDs[spellID]),
 		}
 		tinsert(OnCD, entry)
 		table.sort(OnCD, function(a,b) return a.TimeReady < b.TimeReady end)		
@@ -272,25 +272,34 @@ local function RaidManaTracker_UpdateRecommendationStatus(avg)
 end
 
 -- General updater for all the healers
--- TODO: [better implementation of tracking who is currently recommended] DONE
 local function RaidManaTracker_UpdateHealerStatus()
 	local mana, manaSum = 0, 0
 	for index, healer in pairs(Healers) do
 		if (UnitInPhase(healer.Name)) then -- Had problems with healers showing up late for, say, first trash pulls of the night. This should avoid that.
 			healer.ManaStatus = math.ceil(UnitPower(healer.Name, 0)*100/UnitPowerMax(healer.Name, 0))
 			manaSum = manaSum + healer.ManaStatus
-			if (not healer.Personal) then
+			if (UnitClass(healer.Name) == "Monk") then
+				local name, count = select(1, UnitBuff(healer.Name, "Mana Tea")), select(4, UnitBuff(healer.Name, "Mana Tea"))
+				if (name == nil or count < 5) then
+					healer.Personal = false
+					_G[personalFrameName..index]:SetDesaturated(1)
+				else
+					_G[personalFrameName..index]:SetDesaturated(nil)
+				end
+			end
+--			if (not healer.Personal) then
 				if ((CurrentRecommendation == nil) or (CurrentRecommendation.ManaStatus > healer.ManaStatus)) then
 					CurrentRecommendation = healer
 				end
-			end
+--			end
 		end
 	end
 	
 	
 	if (RaidManaTrackerRecommendationEnabled) then
-		local _, duration, _ = GetSpellCooldown(RaidwideCooldownSpellIDs[playerClass])
-		if (duration == 0) then
+		local startTime, duration, enabled = GetSpellCooldown(RecommendSpellIDs[playerClass])
+		print(startTime, " : ", duration, " : ", enabled)
+		if ((startTime == 0) or (duration < 10)) then -- Checking if duration < 10 seconds to avoid any problems with spell being "on cooldown" when casting or GCD is active
 			RaidManaTracker_UpdateRecommendationStatus(manaSum/#(Healers))
 		else
 			RaidManaTracker_MainFrame:StopAnimating()
