@@ -1,0 +1,6 @@
+Raid Mana Tracker Change Log
+-v1.0 beta
+  - First go at using libraries
+  - Proper options menu implemented
+  - Addon now functional in battlegrounds
+  - Recommendations module removed, will be reimplemented ASAP
